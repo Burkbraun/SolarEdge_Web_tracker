@@ -1,0 +1,162 @@
+
+/* basic elements */
+ html, body, form, fieldset, img {
+    margin: 0;
+    padding: 1;
+    font-family: calibri,helvetica,sans-serif;
+    font-size: 9px;        /* px gives the best control */
+    background: peachpuff;
+}
+
+input, button, select, textarea, optgroup, option {
+    font-family: inherit;
+    font-size: inherit;
+    font-style: inherit;
+    font-weight: inherit;
+}
+
+p { 
+	margin-top: 0; 
+	text-align: justify;
+	}
+h3 { 
+	font: italic normal 1.4em georgia, sans-serif;
+	letter-spacing: 1px; 
+	margin-bottom: 0; 
+	color: #7D775C;
+	}
+a:link { 
+	font-weight: bold; 
+	text-decoration: none; 
+	/*color: #B7A5DF;*/
+	}
+a:visited { 
+	font-weight: bold; 
+	text-decoration: none; 
+	/*color: #D4CDDC;*/
+	}
+a:hover, a:focus, a:active { 
+	text-decoration: underline; 
+	/*color: #9685BA;*/
+	}
+abbr {
+	border-bottom: none;
+	}
+
+
+
+header h1 { 
+	margin-top: 10px;
+	display: block;
+	width: 219px;
+	height: 87px;
+	float: left;
+
+	text-indent: 100%;
+	white-space: nowrap;
+	overflow: hidden;
+	}
+header h2 { 
+	margin-top: 58px; 
+	margin-bottom: 40px; 
+	width: 200px; 
+	height: 18px; 
+	float: right;
+
+	text-indent: 100%;
+	white-space: nowrap;
+	overflow: hidden;
+	}
+header {
+	padding-top: 20px;
+	height: 87px;
+}
+
+
+table {
+    /*width: 150%; */
+    border: 0px solid lightgrey;
+    border-collapse: collapse;
+    margin: 10px;
+    padding: 1;
+    font-family: calibri,helvetica,sans-serif;
+    font-size: 9px;        /* px gives the best control */
+}
+td, th {
+    margin: 10px;
+    padding: 1;
+    font-family: calibri,helvetica,sans-serif;
+    font-size: 9px;        /* px gives the best control */
+}
+
+tr:nth-child(odd) {
+    background: peachpuff;
+}
+tr:nth-child(even) {
+    background: burlywood;
+}
+th {
+    font-weight: bold;
+    background: salmon;
+    padding: 2px;
+    font-size: 8px;
+}
+td {
+    overflow : auto;
+    padding: 2px;
+}
+
+
+.ng-modal-dialog {
+  /* A centered div above the overlay with a box shadow. */
+  z-index:10000;
+  position: fixed;
+  width: 50%; /* Default */
+  overflow: auto;
+
+  /* Center the dialog */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  -webkit-transform: translate(-50%, -50%);
+  -moz-transform: translate(-50%, -50%);
+  background-color: cornsilk;
+/*   box-shadow: 4px 4px 80px #000; */
+}
+.ng-modal-dialog-content {
+  padding:13px;
+  text-align: left;
+  line-height: 150%;
+  margin-top: 15px;
+}
+.ng-modal-close {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  padding: 5px;
+  cursor: pointer;
+  font-size: 120%;
+  display: inline-block;
+  font-weight: bold;
+/*   font-family: 'arial', 'sans-serif'; */
+}
+
+/* svg graphing elements */
+.bar {
+  fill: red; /* changes the background */
+  height: 21px;
+  transition: fill .3s ease;
+  cursor: pointer;
+  font-family: Helvetica, sans-serif;
+}
+.bar text {
+  color: black;
+}
+.bar:hover,
+.bar:focus {
+  fill: black;
+}
+.bar:hover text,
+.bar:focus text {
+  fill: red;
+}
