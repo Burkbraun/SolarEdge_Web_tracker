@@ -12,10 +12,9 @@
 //          This uses Chart.js for graphing services
 
 
-var site_id = "";            //   Enter your site number here, like  1234567
-var api_key = "";  //  Enter your API key here, like  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
-                            // This is obtainable from your web account with SolarEdge
-var inverter_serial = '';  //  Enter your inverter serial number here, like  3F818A2E-20
+var site_id = "1651251";            //   1234567
+var api_key = "7PXNWM8UI9BRVZ94KKVVTS4P8IBIO8NO";  //  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
+var inverter_serial = '7F175D6D-60';  //  3F818A2E-20
 
 // Nothing below here needs to be edited, though it can be if desired.
 
@@ -90,6 +89,7 @@ var ChartBattery;   // and inverter too!
 //var app = angular.module("vapp", []); 
 var summaryDataYesterday = {}; // Total up some key metrics for yesterday and today
 var summaryDataToday = {};
+var badIntervalCount = 0;
 
 
 Chart.pluginService.register({   // This creates the ability to color just the chart background ... chartArea
@@ -143,6 +143,7 @@ function sender_flow () { // Fetch some top data like solar input right now, con
     document.body.appendChild(s);
 }
 // function sender_solar (day) { // Fetch some top secret non-API data. Needs to be done for separate today and yest.
+//                                              // permissions turned out to be separate from API and difficult, so impossible to use.
 //     var milliseconds = ''; // for yesterday, set this at some time in yesterday.
 //     if (day == 'yesterday') {
 //         var y = new Date();
@@ -243,7 +244,7 @@ function responder_flow (payload) {
     //sender_solar('today');
     sender();
 }
-function responder (payload) {      ///      Solar power graph 1
+function responder (payload) {      ////////////   Main data, but only for export, import, consumption
     //alert("response is " + payload);
     // now I have the object, and can sift through it for the graph.
     var day_set = {};
@@ -311,28 +312,30 @@ function responder (payload) {      ///      Solar power graph 1
     DrawChart();
     sender_inverter();  // chain all calls in orderly sequence.
 }
-////////////////////////////////////////                        BATTERY and INVERTER
+////////////////////////////////////////                     BATTERY and INVERTER
 
 function responder_battery (payload) {  //      Battery graph 2, but data is intermingled with inverter payload as well.
     //alert("response is " + payload);
     // now I have the object, and can sift through it for the graph.
     var full_capacity = payload.storageData.batteries[0].nameplate;
-    var response_data = payload.storageData.batteries[0].telemetries; //  timeStamp, power, batteryPercentageState, etc
+    var response_data = check_data(payload.storageData.batteries[0].telemetries, "battery"); //  timeStamp, power, batteryPercentageState, etc
     chart_battery.label = [];       // x axis values go here, in array exactly as long as data values
     chart_battery.datasets = []; // data structures go in here, including label for each meter type
     //
     var fifteen_counter = 0; // set up counter to tick this data (5 min) vs the power data (15 min), for solar collection
     var solar_sum = 0; 
-    var special_solar = [0];  // transfer a calculated dataset from the inverter graph to the power graph, 
+    var special_solar = [];  // transfer a calculated dataset from the inverter graph to the power graph, 
                                     // as it does not otherwise get solar data. 
-                                    // Advance by one click, since it otherwise ends up one point behind. 
+                                    // Advance by one click, since it otherwise ends up one point behind. (Deprecated)
                                     // Center of graph is off, though. We lose registration between the two graphs in any case.
     
     var fullPackEnergyAvailable = response_data[0].fullPackEnergyAvailable;
     // write out a bit of metadata
     var capacity = 100* (fullPackEnergyAvailable/full_capacity);
     document.getElementById('battery_meta_data').innerHTML 
-        = "Battery capacity = " +fullPackEnergyAvailable+ "Wh / " + full_capacity + "Wh = " + capacity.toFixed(2) + "%";
+        = ("Battery capacity = " +fullPackEnergyAvailable+ "Wh / " + full_capacity + "Wh = " + capacity.toFixed(2) + "%");
+    document.getElementById('misc_notes').innerHTML 
+        = ("(Filled in " + badIntervalCount + " bad intervals in battery and inverter data)");
     //
     var fill_set = {};
     line_properties(fill_set, "Fill state");
@@ -361,16 +364,16 @@ function responder_battery (payload) {  //      Battery graph 2, but data is int
         chart_battery.label.push( response_data[j].timeStamp );
         var battery_state = response_data[j].batteryPercentageState.toFixed(1)
         fill_set.data.push( battery_state );
+        var inverternum;
         if (response_data[j] && response_data[j].power != null) {
             power_set.data.push( response_data[j].power.toFixed(1) );
         }
         if (inverter_data[j] && inverter_data[j].totalActivePower != null) {
             inverter_set.data.push(inverter_data[j].totalActivePower);
+            inverternum = Number(inverter_data[j].totalActivePower);
         }
-        //inverter_set.data.push(inverter_data[j].totalActivePower);
         yesterday = (test_day(response_data[j].timeStamp, yesterday));
         var charge = Number(response_data[j].power);
-        var inverternum = Number(inverter_data[j].totalActivePower);
         
         if (yesterday) {
             if (!isNaN(charge)) {
@@ -435,7 +438,7 @@ function responder_battery (payload) {  //      Battery graph 2, but data is int
 }
 
 function responder_inverter (payload) {
-    inverter_data = payload.data.telemetries; // array with all the data, assuming only one inverter(!)
+    inverter_data = check_data(payload.data.telemetries, "inverter"); // array with all the data, assuming only one inverter(!)
     sender_battery();
 }
 function compare(a,b) { // Order property is not sufficient, the data array needs to be re-sorted.
@@ -647,4 +650,32 @@ function shiftDay (daysback) { // go back in time... first set time, store it, t
     timenow = nowtime(hoursback);
     timepast = nowtime(hoursback+48);  // supply number of hours back, then forward to start of next day.
     sender_flow();
+}
+function check_data (telemetry, source) { // Inverter data especially can be missing time intervals, 
+                                    // We need to restore them here so that we are more in sync with other data streams
+                                    // primitive date number is in milliseconds, and 5 minutes = 300000 of those.
+    var regularized_telemetry = [];
+    var last_date;           // keep last date, to detect empty time intervals.
+    for (var j in telemetry) { 
+        var ibit = telemetry[j].date;
+        var bbit = telemetry[j].timeStamp;  // sources differ in terminology, not in format
+        var now_text;
+        if (ibit) { now_text = ibit; }  // ended up not needing source string.. OK.
+        else { now_text = bbit; }
+        var dray = now_text.split(/[- :]/); // Format is like "date":"2021-04-02 01:34:28"
+        var now_date = new Date(dray[0],(dray[1]-1),dray[2],dray[3],dray[4],dray[5]);
+        if (last_date && (now_date-last_date > 360000)) { // Test for 6 minutes
+            var diff = Math.trunc((now_date - last_date + 100000) / 300000);
+            for (var i=1; i < diff; i++) {
+                regularized_telemetry.push(telemetry[j-1]);
+                badIntervalCount++;
+            }
+            //alert ("Found long interval at " + now_date + "of units.. " + diff + " in " + source);
+        }
+        regularized_telemetry.push(telemetry[j]);  // Add current line in any case.
+        last_date = now_date;
+    }
+    //alert("Input was " + telemetry.length + " output was " + regularized_telemetry.length);
+    return (regularized_telemetry);
+    //return (telemetry);
 }
