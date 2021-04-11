@@ -12,9 +12,9 @@
 //          This uses Chart.js for graphing services
 
 
-var site_id = "1651251";            //   1234567
-var api_key = "7PXNWM8UI9BRVZ94KKVVTS4P8IBIO8NO";  //  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
-var inverter_serial = '7F175D6D-60';  //  3F818A2E-20
+var site_id = "1234567";            //   1234567
+var api_key = "78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I";  //  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
+var inverter_serial = '3F818A2E-30';  //  3F818A2E-30
 
 // Nothing below here needs to be edited, though it can be if desired.
 
