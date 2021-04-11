@@ -11,10 +11,10 @@
 //
 //          This uses Chart.js for graphing services
 
-
-var site_id = "1234567";            //   1234567
-var api_key = "78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I";  //  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
-var inverter_serial = '3F818A2E-30';  //  3F818A2E-30
+var site_id = "";            //   Enter your site number here, like  1234567
+var api_key = "";            //  Enter your API key here, like  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
+                             // This is obtainable from your web account with SolarEdge
+var inverter_serial = '';  //  Enter your inverter serial number here, like  3F818A2E-20
 
 // Nothing below here needs to be edited, though it can be if desired.
 
