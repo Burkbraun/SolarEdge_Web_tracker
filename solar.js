@@ -11,10 +11,10 @@
 //
 //          This uses Chart.js for graphing services
 
-var site_id = "";            //   Enter your site number here, like  1234567
-var api_key = "";            //  Enter your API key here, like  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
-                             // This is obtainable from your web account with SolarEdge
-var inverter_serial = '';  //  Enter your inverter serial number here, like  3F818A2E-20
+
+var site_id = "1651251";            //   1234567
+var api_key = "";  //  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
+var inverter_serial = '';  //  3F818A2E-20
 
 // Nothing below here needs to be edited, though it can be if desired.
 
@@ -29,7 +29,8 @@ var rename_scheme = {
     "Production" : 'Production',
     "Consumption" : 'Consumption',
     "FeedIn" : "Export",
-    "Purchased" : "Import"
+    "Purchased" : "Import",
+    "SelfConsumption" : "Self Consumption"
 };
 var color_scheme = {    // line
     "Production" : 'rgba(144, 238, 144, 0.9)',           // lightgreen = rgba(144, 238, 144)
@@ -48,6 +49,10 @@ var color_scheme = {    // line
                                                                             // DarkTurquoise   rgba(0, 206, 209)
                                                                             // CadetBlue 	rgba(95, 158, 160)
                                                                             // SteelBlue  rgba(70, 130, 180)
+    "Self Consumption" : "rgba(64, 224, 208, 1.0)", // MediumTurquoise   rgba(72, 209, 204)
+                                                                            // DarkTurquoise   rgba(0, 206, 209)
+                                                                            // CadetBlue 	rgba(95, 158, 160)
+                                                                            // SteelBlue  rgba(70, 130, 180)
     "Fill state": "rgba(0, 0, 255, 0.9)",
     "Charging": "rgba(0, 128, 0, 0.9)",
     "Inverter power": "rgba(127, 255, 0, 0.9)",             // chartreuse = rgba(127, 255, 0)
@@ -63,6 +68,10 @@ var color_scheme_fill = {
                                                                            // LavenderBlush	rgba(255, 240, 245)
                                                                            // WhiteSmoke	rgba(245, 245, 245)
                                                                            // teal-y kind of thing 64, 224, 208
+    "Self Consumption" : "rgba(64, 224, 208, 0.5)", // fuchsia = rgba(255, 0, 255)    MediumTurquoise   rgba(72, 209, 204)
+                                                                           // LavenderBlush	rgba(255, 240, 245)
+                                                                           // WhiteSmoke	rgba(245, 245, 245)
+                                                                           // teal-y kind of thing 64, 224, 208
     "Fill state": "rgba(0, 0, 255, 0.2)",
     "Charging": "rgba(0, 128, 0, 0.2)",
     "Inverter power": "rgba(127, 255, 0, 0.2)",             // chartreuse = rgba(127, 255, 0)
@@ -73,6 +82,7 @@ var color_scheme_fill = {
 var order_scheme = {  // lowest number is in back, highest in front. 
                                     // This is actually not effective as a property, only through sorting of data
     "Self consumption" : 6,
+    "Self Consumption" : 6,
     "Import" : 5,
     "Consumption" : 4,
     "Production" : 3,
@@ -293,22 +303,24 @@ function responder (payload) {      ////////////   Main data, but only for expor
         first_set = 0;
     }
     chart_solar.datasets.push(day_set);
-    // Now create extra graph/line for self-consumption, by calculation of consumption - import (saved)
-    var calc_set = {};
-    line_properties(calc_set, "Self consumption");
     
-    var line_values = [];  
-    for (var i in chart_solar.datasets) {
-        var nowset = chart_solar.datasets[i];
-        if (nowset.label == "Consumption") {
-            var values = nowset.data;
-            for (var j in values) {
-                line_values.push( Math.round(values[j] - saved_import[j])); 
-            }
-        }
-    }
-    calc_set.data = line_values;
-    chart_solar.datasets.push(calc_set);
+    // Now create extra graph/line for self-consumption, by calculation of consumption - import (saved)
+//     var calc_set = {};
+//     line_properties(calc_set, "Self consumption");
+//     
+//     var line_values = [];  
+//     for (var i in chart_solar.datasets) {
+//         var nowset = chart_solar.datasets[i];
+//         if (nowset.label == "Consumption") {
+//             var values = nowset.data;
+//             for (var j in values) {
+//                 line_values.push( Math.round(values[j] - saved_import[j])); 
+//             }
+//         }
+//     }
+//     calc_set.data = line_values;
+//     chart_solar.datasets.push(calc_set);
+    
     DrawChart();
     sender_inverter();  // chain all calls in orderly sequence.
 }
@@ -576,8 +588,8 @@ function FillSummaries () { /// calculate and show the summary data per day.
         stringData += "<TR><TD>"+ sortedY[i] + "</TD><TD> = </TD><TD align=right>" + summaryDataYesterday[sortedY[i]].toLocaleString() + ' Wh</TD></TR>';
     }  
     // Self-consumption is load minus import
-    var selfY = summaryDataYesterday['Consumption'] - summaryDataYesterday['Import'];
-    stringData += "<TR><TD>Self-consumption</TD><TD> = </TD><TD align=right>" + selfY.toLocaleString() + ' Wh</TD></TR>';
+    //var selfY = summaryDataYesterday['Consumption'] - summaryDataYesterday['Import'];
+    //stringData += "<TR><TD>Self-consumption</TD><TD> = </TD><TD align=right>" + selfY.toLocaleString() + ' Wh</TD></TR>';
     // Solar incoming is roughly (over a whole day) battery charging + export .. plus some self-consumption (load - (import + discharging [negative sign]))
     var solarY = summaryDataYesterday['Export'] + summaryDataYesterday['Charging'] 
                     + (summaryDataYesterday['Consumption'] 
@@ -593,8 +605,8 @@ function FillSummaries () { /// calculate and show the summary data per day.
     for (var i = 0; i < sortedT.length; i++) {
         stringData +=  "<TR><TD>"+ sortedT[i] + "</TD><TD> = </TD><TD align=right>" + summaryDataToday[sortedT[i]].toLocaleString() + ' Wh</TD></TR>';
     }   
-    var selfT = summaryDataToday['Consumption'] - summaryDataToday['Import'];
-    stringData += "<TR><TD>Self-consumption</TD><TD> = </TD><TD align=right>" + selfT.toLocaleString() + ' Wh</TD></TR>';
+    //var selfT = summaryDataToday['Consumption'] - summaryDataToday['Import'];
+    //stringData += "<TR><TD>Self-consumption</TD><TD> = </TD><TD align=right>" + selfT.toLocaleString() + ' Wh</TD></TR>';
     var solarT = summaryDataToday['Export'] + summaryDataToday['Charging'] 
                     + (summaryDataToday['Consumption'] 
                             - summaryDataToday['Import'] 
