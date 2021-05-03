@@ -12,15 +12,19 @@
 //          This uses Chart.js for graphing services
 
 
-var site_id = "1651251";            //   1234567
+var site_id = "";            //   1234567
 var api_key = "";  //  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
 var inverter_serial = '';  //  3F818A2E-20
+var has_battery = 1;                   //  1 if site has 1 battery, 0 if it has no battery. >1 batteries are not supported.
 
 // Nothing below here needs to be edited, though it can be if desired.
 
 var chart_title = "Solar site tracking for site " + site_id;
-var chart_battery_title = "Battery status tracking for site " + site_id;
-
+var chart_battery_title = "Inverter status tracking for site " + site_id;
+if (has_battery) {
+    chart_battery_title = "Battery status tracking for site " + site_id;
+}
+var battery_max_througput = 22400000; // warranted 22.4 MWh of max throughput in 10 years
 
 var timenow = nowtime(0);
 var timepast = nowtime(48);  // supply number of hours back, then forward to start of next day.
@@ -30,7 +34,7 @@ var rename_scheme = {
     "Consumption" : 'Consumption',
     "FeedIn" : "Export",
     "Purchased" : "Import",
-    "SelfConsumption" : "Self Consumption"
+    "SelfConsumption" : "Self consumption"
 };
 var color_scheme = {    // line
     "Production" : 'rgba(144, 238, 144, 0.9)',           // lightgreen = rgba(144, 238, 144)
@@ -129,6 +133,8 @@ function nowtime(offset) { // offset in hours, backwards in time. But only to be
     var n = d.toLocaleString('en-US', { hour12: false });  // good - needs formatting. remove comma, space, AM/PM 
                                                                                     // starts as 12/13/2020, 5:45:26 PM
     n = n.replace(/\//g, "-");
+    n = n.replace(/^(\d-)/, "0$1");
+    n = n.replace(/-(\d-)/, "-0$1");  // pad in single number dates.
     n = n.replace(/ [AP]M/, "");
     n = n.replace(", ", "%20");
     y = d.getFullYear();
@@ -201,7 +207,10 @@ function sender () {
     //alert("Sender called on " + s.src );
 }
 function sender_battery () {
-    
+    if (!has_battery) {           // call up main handler, without battery data.
+        responder_battery(); 
+        return;
+    }
     var url = "https://monitoringapi.solaredge.com/site/";
     var api_function = "storageData.json";
     var args = [
@@ -247,7 +256,9 @@ function responder_flow (payload) {
         stringData += pointers[i].to + ' (';
         stringData += payload.siteCurrentPowerFlow[pointers[i].to.toUpperCase()].currentPower + unit + ")</TD></TR>";
     }
-    stringData += "<TR><TD colspan=2>Battery is at " + payload.siteCurrentPowerFlow.STORAGE.chargeLevel + '%</TD></TR>';
+    if (has_battery) {
+        stringData += "<TR><TD colspan=2>Battery is at " + payload.siteCurrentPowerFlow.STORAGE.chargeLevel + '%</TD></TR>';
+    }
     stringData += "<TR><TD colspan=2>Now is: " + timenow.replace(/%20/, '  ') + '</TD></TR>';
     stringData += '</TABLE></TD><TD> &nbsp; &nbsp; <TD><TD id=summary_table><TD></TR></TABLE>';
     topData.innerHTML = stringData;
@@ -329,8 +340,11 @@ function responder (payload) {      ////////////   Main data, but only for expor
 function responder_battery (payload) {  //      Battery graph 2, but data is intermingled with inverter payload as well.
     //alert("response is " + payload);
     // now I have the object, and can sift through it for the graph.
-    var full_capacity = payload.storageData.batteries[0].nameplate;
-    var response_data = check_data(payload.storageData.batteries[0].telemetries, "battery"); //  timeStamp, power, batteryPercentageState, etc
+    var response_data;
+    if (payload) {
+        var full_capacity = payload.storageData.batteries[0].nameplate;
+        response_data = check_data(payload.storageData.batteries[0].telemetries, "battery"); //  timeStamp, power, batteryPercentageState, etc
+    }
     chart_battery.label = [];       // x axis values go here, in array exactly as long as data values
     chart_battery.datasets = []; // data structures go in here, including label for each meter type
     //
@@ -341,26 +355,39 @@ function responder_battery (payload) {  //      Battery graph 2, but data is int
                                     // Advance by one click, since it otherwise ends up one point behind. (Deprecated)
                                     // Center of graph is off, though. We lose registration between the two graphs in any case.
     
-    var fullPackEnergyAvailable = response_data[0].fullPackEnergyAvailable;
-    // write out a bit of metadata
-    var capacity = 100* (fullPackEnergyAvailable/full_capacity);
-    document.getElementById('battery_meta_data').innerHTML 
-        = ("Battery capacity = " +fullPackEnergyAvailable+ "Wh / " + full_capacity + "Wh = " + capacity.toFixed(2) + "%");
-    document.getElementById('misc_notes').innerHTML 
-        = ("(Filled in " + badIntervalCount + " bad intervals in battery and inverter data)");
-    //
-    var fill_set = {};
-    line_properties(fill_set, "Fill state");
-    fill_set.yAxisID = 'left-y-axis';
-    fill_set.fill = false;
-    //
-    var power_set = {};
-    line_properties(power_set, "Charging");
-    power_set.yAxisID = 'right-y-axis';
-    summaryDataYesterday['Charging'] = 0;
-    summaryDataToday['Charging'] = 0;
-    summaryDataYesterday['Discharging'] = 0;
-    summaryDataToday['Discharging'] = 0;
+    if (payload) {
+        var fullPackEnergyAvailable = response_data[0].fullPackEnergyAvailable;
+        var cumulativeDischarge = response_data[0].lifeTimeEnergyDischarged;  // energy discharged from the battery in Wh
+        var cumulativeCharge = response_data[0].lifeTimeEnergyCharged;
+        // write out a bit of metadata
+        var capacity = 100* (fullPackEnergyAvailable/full_capacity);
+        document.getElementById('misc_notes').innerHTML 
+            = ("(Filled in " + badIntervalCount + " bad intervals in battery and inverter data)");
+    
+        var throughputDpercent = (cumulativeDischarge/battery_max_througput) * 100;
+        var throughputCpercent = (cumulativeCharge/battery_max_througput) * 100;
+        var throughputDmwh = (cumulativeDischarge/1000000).toFixed(3);
+        var throughpuCmwh = (cumulativeCharge/1000000).toFixed(3);
+        document.getElementById('battery_meta_data').innerHTML 
+            = ("Battery has charged " + throughpuCmwh + " MWh, and discharged " + throughputDmwh + " MWh, cumulatively.")
+        document.getElementById('battery_meta_data').innerHTML     
+            += ("<br>This is " + throughputCpercent.toFixed(2)+ "% and " +throughputDpercent.toFixed(2) + "% of the warranted amounts, respectively.");
+        document.getElementById('battery_meta_data').innerHTML 
+            += ("<br>Battery capacity = " +fullPackEnergyAvailable+ "Wh / " + full_capacity + "Wh = " + capacity.toFixed(2) + "%");
+        //
+        var fill_set = {};
+        line_properties(fill_set, "Fill state");
+        fill_set.yAxisID = 'left-y-axis';
+        fill_set.fill = false;
+        //
+        var power_set = {};
+        line_properties(power_set, "Charging");
+        power_set.yAxisID = 'right-y-axis';
+        summaryDataYesterday['Charging'] = 0;
+        summaryDataToday['Charging'] = 0;
+        summaryDataYesterday['Discharging'] = 0;
+        summaryDataToday['Discharging'] = 0;
+    }
     //
     var inverter_set = {};
     line_properties(inverter_set, "Inverter power");
@@ -372,20 +399,31 @@ function responder_battery (payload) {  //      Battery graph 2, but data is int
     
     var yesterday = test_day(timepast, 'initialize');
 
-    for (var j in response_data) { 
-        chart_battery.label.push( response_data[j].timeStamp );
-        var battery_state = response_data[j].batteryPercentageState.toFixed(1)
-        fill_set.data.push( battery_state );
-        var inverternum;
-        if (response_data[j] && response_data[j].power != null) {
-            power_set.data.push( response_data[j].power.toFixed(1) );
+    var loop_data;
+    if (has_battery) { loop_data = response_data; }
+    else {                  loop_data = inverter_data; }
+    for (var j in loop_data) { 
+        var battery_state = 100;
+        if (has_battery) {
+            chart_battery.label.push( response_data[j].timeStamp );
+            battery_state = response_data[j].batteryPercentageState.toFixed(1)
+            fill_set.data.push( battery_state );
+            if (response_data[j] && response_data[j].power != null) {
+                power_set.data.push( response_data[j].power.toFixed(1) );
+            }
+            yesterday = (test_day(response_data[j].timeStamp, yesterday));
+            var charge = Number(response_data[j].power);
         }
+        else {
+            chart_battery.label.push( inverter_data[j].date );
+            yesterday = (test_day(inverter_data[j].date, yesterday));
+        }
+        // inverter graph //
+        var inverternum;
         if (inverter_data[j] && inverter_data[j].totalActivePower != null) {
             inverter_set.data.push(inverter_data[j].totalActivePower);
             inverternum = Number(inverter_data[j].totalActivePower);
         }
-        yesterday = (test_day(response_data[j].timeStamp, yesterday));
-        var charge = Number(response_data[j].power);
         
         if (yesterday) {
             if (!isNaN(charge)) {
@@ -429,15 +467,17 @@ function responder_battery (payload) {  //      Battery graph 2, but data is int
             solar_sum = 0;
         }
     }
-    summaryDataYesterday['Charging'] = Math.round(summaryDataYesterday['Charging']/12);
-    summaryDataYesterday['Discharging'] = Math.round(summaryDataYesterday['Discharging']/12);
-    summaryDataYesterday['Inverter'] = Math.round(summaryDataYesterday['Inverter']/12);
-    summaryDataToday['Charging'] = Math.round(summaryDataToday['Charging']/12);
-    summaryDataToday['Discharging'] = Math.round(summaryDataToday['Discharging']/12);
-    summaryDataToday['Inverter'] = Math.round(summaryDataToday['Inverter']/12);
-    //
-    chart_battery.datasets.push(fill_set);
-    chart_battery.datasets.push(power_set);
+    if (has_battery) {
+        summaryDataYesterday['Charging'] = Math.round(summaryDataYesterday['Charging']/12);
+        summaryDataYesterday['Discharging'] = Math.round(summaryDataYesterday['Discharging']/12);
+        summaryDataYesterday['Inverter'] = Math.round(summaryDataYesterday['Inverter']/12);
+        summaryDataToday['Charging'] = Math.round(summaryDataToday['Charging']/12);
+        summaryDataToday['Discharging'] = Math.round(summaryDataToday['Discharging']/12);
+        summaryDataToday['Inverter'] = Math.round(summaryDataToday['Inverter']/12);
+        //
+        chart_battery.datasets.push(fill_set);
+        chart_battery.datasets.push(power_set);
+    }
     chart_battery.datasets.push(inverter_set);
     DrawChartBattery();
     FillSummaries();
@@ -546,7 +586,7 @@ function DrawChartBattery () { // top power chart
 						    maxRotation: 75 // This has sensitive effect on number of labels applied to X axis.
 						}
                 }],
-                yAxes: [{
+                yAxes: [{   
                     stacked: false,
                     ticks: {
                         min: 0,
@@ -556,15 +596,15 @@ function DrawChartBattery () { // top power chart
                     position: 'left',
                     scaleLabel: {
                         display: true,
-                        labelString: 'Percent filled'
+                        labelString: 'No storage'
 					}
-				},	{
+				}, {
                     stacked: false,
                     id: 'right-y-axis',
                     position: 'right',
                     scaleLabel: {
 					    display: true,
-						labelString: 'Watts charged or discharged'
+						labelString: 'Watts passed through inverter'
 					},
 					gridLines: {
 					    display: false
@@ -573,6 +613,9 @@ function DrawChartBattery () { // top power chart
             },
         }
     });
+    if (has_battery) {
+        ChartBattery.options.scales.yAxes[0].scaleLabel.labelString = "Percent filled";           
+    }
     if (oldChart != null ) {  // if not destroyed, chart sits under current one, with active hover events!
         oldChart.destroy(); // Destroy after drawing new one to minimize reflow disruptions.
     }
@@ -591,10 +634,16 @@ function FillSummaries () { /// calculate and show the summary data per day.
     //var selfY = summaryDataYesterday['Consumption'] - summaryDataYesterday['Import'];
     //stringData += "<TR><TD>Self-consumption</TD><TD> = </TD><TD align=right>" + selfY.toLocaleString() + ' Wh</TD></TR>';
     // Solar incoming is roughly (over a whole day) battery charging + export .. plus some self-consumption (load - (import + discharging [negative sign]))
-    var solarY = summaryDataYesterday['Export'] + summaryDataYesterday['Charging'] 
+    var solarY = 0;
+    if (has_battery) {
+        solarY = summaryDataYesterday['Export'] + summaryDataYesterday['Charging'] 
                     + (summaryDataYesterday['Consumption'] 
                             - summaryDataYesterday['Import'] 
                             + summaryDataYesterday['Discharging']) ;
+    }
+    else {
+        solarY = summaryDataYesterday['Export'] + (summaryDataYesterday['Consumption'] - summaryDataYesterday['Import'] ) ;
+    }
     stringData += "<TR><TD>Solar production</TD><TD> = </TD><TD align=right>" + solarY.toLocaleString() + ' Wh</TD></TR>';
 
     // Now on to the TODAY table
@@ -607,10 +656,16 @@ function FillSummaries () { /// calculate and show the summary data per day.
     }   
     //var selfT = summaryDataToday['Consumption'] - summaryDataToday['Import'];
     //stringData += "<TR><TD>Self-consumption</TD><TD> = </TD><TD align=right>" + selfT.toLocaleString() + ' Wh</TD></TR>';
-    var solarT = summaryDataToday['Export'] + summaryDataToday['Charging'] 
+    var solarT = 0;
+    if (has_battery) {
+        solarT = summaryDataToday['Export'] + summaryDataToday['Charging'] 
                     + (summaryDataToday['Consumption'] 
                             - summaryDataToday['Import'] 
                             + summaryDataToday['Discharging']) ;
+    }
+    else {
+        solarT = summaryDataToday['Export'] + (summaryDataToday['Consumption'] - summaryDataToday['Import']) ;
+    }
     stringData += "<TR><TD>Solar production</TD><TD> = </TD><TD align=right>" + solarT.toLocaleString() + ' Wh</TD></TR>';
 
     
