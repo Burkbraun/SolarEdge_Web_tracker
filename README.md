@@ -11,4 +11,5 @@ Licensing is open for all to use and share. This was originally developed for Ea
 https://earthwiseenergy.business.site
 
 Burkhard R. Braun
+
 Marin County, California, USA
