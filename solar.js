@@ -2,7 +2,7 @@
 //          Solar charting application for SolarEdge API
 //          Burkhard R. Braun   December, 2020
 //          Free for use and revision
-//          For EarthWise customers
+//          Originally for EarthWise customers
 //
 //          Run by placing the HTML and javascript file together and dragging the HTML file to a browser
 //          It can also run from a server, etc.
@@ -13,9 +13,9 @@
 
 
 var site_id = "";            //   1234567
-var api_key = "";  //  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
+var api_key = "";           //  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
 var inverter_serial = '';  //  3F818A2E-20
-var has_battery = 1;                   //  1 if site has 1 battery, 0 if it has no battery. >1 batteries are not supported.
+var has_battery = 1;     //  1 if site has 1 battery, 0 if it has no battery. >1 batteries are not supported.
 
 // Nothing below here needs to be edited, though it can be if desired.
 
@@ -369,7 +369,7 @@ function responder_battery (payload) {  //      Battery graph 2, but data is int
         var throughputDmwh = (cumulativeDischarge/1000000).toFixed(3);
         var throughpuCmwh = (cumulativeCharge/1000000).toFixed(3);
         document.getElementById('battery_meta_data').innerHTML 
-            = ("Battery has charged " + throughpuCmwh + " MWh, and discharged " + throughputDmwh + " MWh, cumulatively.")
+            = ("Battery has charged " + throughpuCmwh + " MWh, and discharged " + throughputDmwh + " MWh, cumulatively. Round-trip efficiency = " + (100*throughputDmwh/throughpuCmwh).toFixed(2) + "%")
         document.getElementById('battery_meta_data').innerHTML     
             += ("<br>This is " + throughputCpercent.toFixed(2)+ "% and " +throughputDpercent.toFixed(2) + "% of the warranted amounts, respectively.");
         document.getElementById('battery_meta_data').innerHTML 
