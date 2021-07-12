@@ -2,7 +2,7 @@
 //          Solar charting application for SolarEdge API
 //          Burkhard R. Braun   December, 2020
 //          Free for use and revision
-//          Originally for EarthWise customers
+//          For EarthWise customers
 //
 //          Run by placing the HTML and javascript file together and dragging the HTML file to a browser
 //          It can also run from a server, etc.
@@ -12,10 +12,10 @@
 //          This uses Chart.js for graphing services
 
 
-var site_id = "";            //   1234567
-var api_key = "";           //  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
-var inverter_serial = '';  //  3F818A2E-20
-var has_battery = 1;     //  1 if site has 1 battery, 0 if it has no battery. >1 batteries are not supported.
+var site_id = "1651251";            //   1234567
+var api_key = "D9HPLSSRXM4MA4F0X9M7PZG1AT0OF29C";  //  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
+var inverter_serial = '7F175D6D-60';  //  3F818A2E-20
+var has_battery = 1;                   //  1 if site has 1 battery, 0 if it has no battery. >1 batteries are not supported.
 
 // Nothing below here needs to be edited, though it can be if desired.
 
@@ -130,16 +130,32 @@ function nowtime(offset) { // offset in hours, backwards in time. But only to be
         d.setHours(0);
         d.setMinutes(0);
     }
-    var n = d.toLocaleString('en-US', { hour12: false });  // good - needs formatting. remove comma, space, AM/PM 
-                                                                                    // starts as 12/13/2020, 5:45:26 PM
-    n = n.replace(/\//g, "-");
+    //var n = d.toLocaleString('en-US', { hour12: false });  // good - needs formatting. remove comma, space, AM/PM 
+    //                                                                                // starts as 12/13/2020, 5:45:26 PM
+    // This function turns out to give bad data in edge and chrome browsers. Odd, but true. So parse by hand.
+    month = pad_number(1+d.getMonth());
+    day      = pad_number(d.getDate());
+    year     = d.getFullYear();
+    hour     = pad_number(d.getHours());
+    minute = pad_number(d.getMinutes());
+    sec       = pad_number(d.getSeconds());
+    n = (year + "-" + month + "-" + day + "%20" + hour + ":" + minute + ":" + sec);
+
+    //n = n.replace(/\//g, "-");
     n = n.replace(/^(\d-)/, "0$1");
     n = n.replace(/-(\d-)/, "-0$1");  // pad in single number dates.
-    n = n.replace(/ [AP]M/, "");
-    n = n.replace(", ", "%20");
-    y = d.getFullYear();
-    n = n.replace( "-"+y, "");
-    n = y + "-" + n;
+    //n = n.replace(/ [AP]M/, "");
+    //n = n.replace(", ", "%20");
+    //y = d.getFullYear();
+    //n = n.replace( "-"+y, "");
+    //n = y + "-" + n;
+    return n;
+}
+function pad_number (n) {    // Any numeral must be at least 2 long, not 1
+    n = n.toString();
+    if (n.match(/^(\d)$/)) {
+        n = ("0" + n);
+    }
     return n;
 }
 
