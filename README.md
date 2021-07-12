@@ -3,7 +3,7 @@ This is serverless, javascript / browser based tracking software for SolarEdge s
 
 It injects API requests into a web page, using your API key, site ID, and inverter serial number, to get two days of tracking from SolarEdge, and displays it graphically. The enclosed pdf should give an impression of how the site looks.
 
-Your IDs are entered into the javascript code, (solar.js), hard-coded.
+Your IDs are entered (by you) into the javascript code, (solar.js), hard-coded.
 
 Then, keeping all files together, bring up the index.html file on any browser, and graphing should display.
 
