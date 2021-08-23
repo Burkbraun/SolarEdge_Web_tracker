@@ -12,9 +12,9 @@
 //          This uses Chart.js for graphing services
 
 
-var site_id = "1651251";            //   1234567
-var api_key = "D9HPLSSRXM4MA4F0X9M7PZG1AT0OF29C";  //  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
-var inverter_serial = '7F175D6D-60';  //  3F818A2E-20
+var site_id = "";            //   1234567
+var api_key = "";  //  78PTSO8XNTSO8WKKVRNSEVTSO8NO4P8I
+var inverter_serial = '';  //  3F818A2E-20
 var has_battery = 1;                   //  1 if site has 1 battery, 0 if it has no battery. >1 batteries are not supported.
 
 // Nothing below here needs to be edited, though it can be if desired.
@@ -528,6 +528,9 @@ function DrawChart () { // top power chart
         },
         options: {
             responsive: true,
+            tooltips: {
+                mode: 'index'
+            },
             chartArea: { backgroundColor: 'Snow' }, // beige  WhiteSmoke  Linen  Snow
             legend: { 
                     display: true,
@@ -578,6 +581,10 @@ function DrawChartBattery () { // top power chart
         },
         options: {
             responsive: true,
+            tooltips: {
+                mode: 'index'
+            },
+
             chartArea: { backgroundColor: 'lightcyan' },
             legend: { 
                     display: true,
