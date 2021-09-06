@@ -28,6 +28,7 @@ var battery_max_througput = 22400000; // warranted 22.4 MWh of max throughput in
 
 var timenow = nowtime(0);
 var timepast = nowtime(48);  // supply number of hours back, then forward to start of next day.
+var timecompare = nowtime(24);
 
 var rename_scheme = {
     "Production" : 'Production',
@@ -103,6 +104,7 @@ var ChartBattery;   // and inverter too!
 //var app = angular.module("vapp", []); 
 var summaryDataYesterday = {}; // Total up some key metrics for yesterday and today
 var summaryDataToday = {};
+var summaryDataYesterdayPartial = {}; // go to the same time we are now at, yesterday, for better comparison
 var badIntervalCount = 0;
 
 
@@ -300,12 +302,14 @@ function responder (payload) {      ////////////   Main data, but only for expor
         var yesterday = test_day(timepast, 'initialize'); // flag when we cross from yesterday to today
         line_properties(line_set, line_label);
         summaryDataYesterday[line_label] = 0;
+        summaryDataYesterdayPartial[line_label] = 0;
         summaryDataToday[line_label] = 0;
         //
         var line_values = [];        
         var values = datasets[i].values;
         for (var j in values) { 
             yesterday = (test_day(values[j].date, yesterday));
+            var yestertime = test_time(values[j].date); // flag if we are still before same time yesterday
             if (first_set) {
                 chart_solar.label.push(values[j].date);
                 if (yesterday) { day_set.data.push(-50); }
@@ -318,12 +322,14 @@ function responder (payload) {      ////////////   Main data, but only for expor
             //
             var sumval = Number(values[j].value);
             if (!isNaN(sumval)) {
+                if (yesterday && yestertime) { summaryDataYesterdayPartial[line_label] += sumval/4; }
                 if (yesterday) { summaryDataYesterday[line_label] += sumval/4; } // Divide by 4 for power, not for energy.
                 else {               summaryDataToday[line_label] += sumval/4; }
             }
         }
         summaryDataYesterday[line_label] = parseInt(summaryDataYesterday[line_label]);
         summaryDataToday[line_label] = parseInt(summaryDataToday[line_label]);
+        summaryDataYesterdayPartial[line_label] = parseInt(summaryDataYesterdayPartial[line_label]);
         //
         line_set.data = line_values;
         chart_solar.datasets.push(line_set);
@@ -400,8 +406,10 @@ function responder_battery (payload) {  //      Battery graph 2, but data is int
         line_properties(power_set, "Charging");
         power_set.yAxisID = 'right-y-axis';
         summaryDataYesterday['Charging'] = 0;
+        summaryDataYesterdayPartial['Charging'] = 0;
         summaryDataToday['Charging'] = 0;
         summaryDataYesterday['Discharging'] = 0;
+        summaryDataYesterdayPartial['Discharging'] = 0;
         summaryDataToday['Discharging'] = 0;
     }
     //
@@ -409,11 +417,13 @@ function responder_battery (payload) {  //      Battery graph 2, but data is int
     line_properties(inverter_set, "Inverter power");
     inverter_set.yAxisID = 'right-y-axis';
     summaryDataYesterday['Inverter'] = 0;
+    summaryDataYesterdayPartial['Inverter'] = 0;
     summaryDataToday['Inverter'] = 0;
 
     var line_values = [];        
     
     var yesterday = test_day(timepast, 'initialize');
+    var yestertime = test_time(timepast);
 
     var loop_data;
     if (has_battery) { loop_data = response_data; }
@@ -428,11 +438,13 @@ function responder_battery (payload) {  //      Battery graph 2, but data is int
                 power_set.data.push( response_data[j].power.toFixed(1) );
             }
             yesterday = (test_day(response_data[j].timeStamp, yesterday));
+            yestertime = test_time(response_data[j].timeStamp);
             var charge = Number(response_data[j].power);
         }
         else {
             chart_battery.label.push( inverter_data[j].date );
             yesterday = (test_day(inverter_data[j].date, yesterday));
+            yestertime = test_time(inverter_data[j].date);
         }
         // inverter graph //
         var inverternum;
@@ -445,14 +457,23 @@ function responder_battery (payload) {  //      Battery graph 2, but data is int
             if (!isNaN(charge)) {
                 if (charge >0 ) {
                     summaryDataYesterday['Charging'] += charge;
+                    if (yestertime) {
+                        summaryDataYesterdayPartial['Charging'] += charge;
+                    }
                     solar_sum += charge;
                 }
                 else {
                    summaryDataYesterday['Discharging'] += charge; 
+                    if (yestertime) {
+                        summaryDataYesterdayPartial['Discharging'] += charge;
+                    }
                 }
             }
             if (!isNaN(inverternum)) {
                 summaryDataYesterday['Inverter'] += inverternum;
+                if (yestertime) {
+                    summaryDataYesterdayPartial['Inverter'] += inverternum;
+                }
                 if (inverternum > 0 && ( charge > 0 || battery_state == 100) ) {
                     solar_sum += inverternum;   // log this to solar if inverter is pos and battery is full or charging.
                 }                
@@ -487,6 +508,9 @@ function responder_battery (payload) {  //      Battery graph 2, but data is int
         summaryDataYesterday['Charging'] = Math.round(summaryDataYesterday['Charging']/12);
         summaryDataYesterday['Discharging'] = Math.round(summaryDataYesterday['Discharging']/12);
         summaryDataYesterday['Inverter'] = Math.round(summaryDataYesterday['Inverter']/12);
+        summaryDataYesterdayPartial['Charging'] = Math.round(summaryDataYesterdayPartial['Charging']/12);
+        summaryDataYesterdayPartial['Discharging'] = Math.round(summaryDataYesterdayPartial['Discharging']/12);
+        summaryDataYesterdayPartial['Inverter'] = Math.round(summaryDataYesterdayPartial['Inverter']/12);
         summaryDataToday['Charging'] = Math.round(summaryDataToday['Charging']/12);
         summaryDataToday['Discharging'] = Math.round(summaryDataToday['Discharging']/12);
         summaryDataToday['Inverter'] = Math.round(summaryDataToday['Inverter']/12);
@@ -647,11 +671,21 @@ function DrawChartBattery () { // top power chart
 function FillSummaries () { /// calculate and show the summary data per day.
     var sumData= document.getElementById('summary_table');
     
-    // Start with yesterday table
-    var stringData = "<TABLE padding=4px><TR valign=top><TD><b><u>Yesterday:</u></b><br><TABLE>";
+    // Start with header, then yesterday table
     var sortedY = Object.keys(summaryDataYesterday).sort();
-    for (var i = 0; i < sortedY.length; i++) {
-        stringData += "<TR><TD>"+ sortedY[i] + "</TD><TD> = </TD><TD align=right>" + summaryDataYesterday[sortedY[i]].toLocaleString() + ' Wh</TD></TR>';
+    var stringData = "<TABLE padding=5px><TR valign=bottom><TD><TABLE><TR><TD></TD></TR>";
+    
+    for (var i = 0; i < sortedY.length; i++) { //"+ sortedY[i] + "   = 
+        stringData += "<TR><TD>" + sortedY[i] + "</TD></TR>";
+    }
+    stringData += "<TR><TD>Solar production</TD></TR>";
+    
+    //<TR><TD>Charging</TD></TR><TR><TD>Consumption</TD></TR><TR><TD>Discharging</TD></TR><TR><TD>Export</TD></TR><TR><TD>Import</TD></TR><TR><TD>Inverter</TD></TR><TR><TD>Self consumption</TD></TR><TR><TD>Solar production</TD></TR>
+    stringData += "</TABLE></TD>";
+    
+    stringData += "<TD align=right><b><u>Yday, all:</u></b><br><TABLE style=\"border: 1px;\">";
+    for (var i = 0; i < sortedY.length; i++) { //"+ sortedY[i] + "   = 
+        stringData += "<TR><TD></TD><TD></TD><TD align=right>" + summaryDataYesterday[sortedY[i]].toLocaleString() + ' Wh</TD></TR>';
     }  
     // Self-consumption is load minus import
     //var selfY = summaryDataYesterday['Consumption'] - summaryDataYesterday['Import'];
@@ -667,15 +701,34 @@ function FillSummaries () { /// calculate and show the summary data per day.
     else {
         solarY = summaryDataYesterday['Export'] + (summaryDataYesterday['Consumption'] - summaryDataYesterday['Import'] ) ;
     }
-    stringData += "<TR><TD>Solar production</TD><TD> = </TD><TD align=right>" + solarY.toLocaleString() + ' Wh</TD></TR>';
+    stringData += "<TR><TD></TD><TD></TD><TD align=right>" + solarY.toLocaleString() + ' Wh</TD></TR>';//  = 
+
+    // Now on to table of yesterday, to now- Partial Yesterday
+    stringData += "</TABLE></TD><TD align=right><b><u>Yday, now:</u></b><br><TABLE>"; 
+
+    var sortedT = Object.keys(summaryDataYesterdayPartial).sort();
+    for (var i = 0; i < sortedT.length; i++) { // "+ sortedT[i] + "  = 
+        stringData +=  "<TR><TD></TD><TD></TD><TD align=right>" + summaryDataYesterdayPartial[sortedT[i]].toLocaleString() + ' Wh</TD></TR>';
+    }   
+    var solarT = 0;
+    if (has_battery) {
+        solarT = summaryDataYesterdayPartial['Export'] + summaryDataYesterdayPartial['Charging'] 
+                    + (summaryDataYesterdayPartial['Consumption'] 
+                            - summaryDataYesterdayPartial['Import'] 
+                            + summaryDataYesterdayPartial['Discharging']) ;
+    }
+    else {
+        solarT = summaryDataYesterdayPartial['Export'] + (summaryDataYesterdayPartial['Consumption'] - summaryDataYesterdayPartial['Import']) ;
+    }
+    stringData += "<TR><TD></TD><TD></TD><TD align=right>" + solarT.toLocaleString() + ' Wh</TD></TR>'; //  = 
 
     // Now on to the TODAY table
-    stringData += "</TABLE></TD><TD><b><u>Today:</u></b><br><TABLE>"; 
+    stringData += "</TABLE></TD><TD align=right><b><u>Today:</u></b><br><TABLE>"; 
     
     //alert(JSON.stringify(summaryDataToday));
     var sortedT = Object.keys(summaryDataToday).sort();
-    for (var i = 0; i < sortedT.length; i++) {
-        stringData +=  "<TR><TD>"+ sortedT[i] + "</TD><TD> = </TD><TD align=right>" + summaryDataToday[sortedT[i]].toLocaleString() + ' Wh</TD></TR>';
+    for (var i = 0; i < sortedT.length; i++) { // "+ sortedT[i] + "
+        stringData +=  "<TR><TD></TD><TD></TD><TD align=right>" + summaryDataToday[sortedT[i]].toLocaleString() + ' Wh</TD></TR>'; // = 
     }   
     //var selfT = summaryDataToday['Consumption'] - summaryDataToday['Import'];
     //stringData += "<TR><TD>Self-consumption</TD><TD> = </TD><TD align=right>" + selfT.toLocaleString() + ' Wh</TD></TR>';
@@ -689,9 +742,8 @@ function FillSummaries () { /// calculate and show the summary data per day.
     else {
         solarT = summaryDataToday['Export'] + (summaryDataToday['Consumption'] - summaryDataToday['Import']) ;
     }
-    stringData += "<TR><TD>Solar production</TD><TD> = </TD><TD align=right>" + solarT.toLocaleString() + ' Wh</TD></TR>';
+    stringData += "<TR><TD></TD><TD></TD><TD align=right>" + solarT.toLocaleString() + ' Wh</TD></TR>'; // = 
 
-    
     stringData += "</TABLE></TD></TR></TABLE>";
     sumData.innerHTML = stringData;
 }
@@ -720,6 +772,18 @@ function test_day(chart_day, yesterday) {
         if (yesterday == 'initialize') {
             return newday;
         }
+    }
+    return 0;
+}
+function test_time(chart_date) { // compare with time now, return 1 if = or prior, from yesterday
+    var matchray = [];
+    var matchray = chart_date.split(/[- :]/);  // Format is like "date":"2021-04-02 01:34:28"
+    var point_date = new Date(matchray[0],(matchray[1]-1),matchray[2],matchray[3],matchray[4],matchray[5]);
+    var d = new Date();
+    d.setTime(d.getTime() - 86400000);  // subtract one day in milliseconds
+    if (point_date.getTime() < d.getTime()) {
+        //alert("before, " + point_date + " ** " + chart_date);
+        return 1;
     }
     return 0;
 }
