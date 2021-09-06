@@ -683,7 +683,8 @@ function FillSummaries () { /// calculate and show the summary data per day.
     
     // Start with header, then yesterday table
     var sortedY = Object.keys(summaryDataYesterday).sort();
-    var stringData = "<TABLE padding=5px><TR valign=bottom><TD><TABLE><TR><TD></TD></TR>";
+    var stringData = "<TABLE padding=5px><TR valign=bottom><TD></TD><TD colspan=2 align=center>&nbsp;<b>=== Yesterday ===</b></TD><TD></TD></TR>";
+    stringData += "<TR valign=bottom><TD><TABLE><TR><TD></TD></TR>";
     
     for (var i = 0; i < sortedY.length; i++) { //"+ sortedY[i] + "   = 
         stringData += "<TR><TD>" + sortedY[i] + "</TD></TR>";
@@ -692,7 +693,7 @@ function FillSummaries () { /// calculate and show the summary data per day.
     
     stringData += "</TABLE></TD>";
     
-    stringData += "<TD align=right><b><u>Yday, all:</u></b><br><TABLE style=\"border: 1px;\">";
+    stringData += "<TD align=right><b><u>All:</u> &nbsp;&nbsp;&nbsp;</b><br><TABLE style=\"border: 1px;\">";
     for (var i = 0; i < sortedY.length; i++) { //"+ sortedY[i] + "   = 
         stringData += "<TR><TD></TD><TD></TD><TD align=right>" + summaryDataYesterday[sortedY[i]].toLocaleString() + ' Wh</TD></TR>';
     }  
@@ -713,7 +714,7 @@ function FillSummaries () { /// calculate and show the summary data per day.
     stringData += "<TR><TD></TD><TD></TD><TD align=right>" + solarY.toLocaleString() + ' Wh</TD></TR>';//  = 
 
     // Now on to table of yesterday, to now- Partial Yesterday
-    stringData += "</TABLE></TD><TD align=right><b><u>Yday, now:</u></b><br><TABLE>"; 
+    stringData += "</TABLE></TD><TD align=right><b><u>To now:</u></b><br><TABLE>"; 
 
     var sortedT = Object.keys(summaryDataYesterdayPartial).sort();
     for (var i = 0; i < sortedT.length; i++) { // "+ sortedT[i] + "  = 
