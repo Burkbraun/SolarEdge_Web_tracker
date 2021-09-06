@@ -95,6 +95,16 @@ var order_scheme = {  // lowest number is in back, highest in front.
     "Solar":1,
     "Yesterday": 0
 };
+var colorSummary = {    // tell if today is "better" than yesterday, with color
+    "Charging" : 1,
+    "Consumption" : 0,
+    "Discharging" : 1,
+    "Export" : 1,
+    "Import" : 0,
+    "Inverter" : 2,
+    "Self consumption" : 2,
+    "Solar production" : 1
+};
 
 var chart_solar = {};    // set globals to hold main charts
 var chart_battery = {};
@@ -680,7 +690,6 @@ function FillSummaries () { /// calculate and show the summary data per day.
     }
     stringData += "<TR><TD>Solar production</TD></TR>";
     
-    //<TR><TD>Charging</TD></TR><TR><TD>Consumption</TD></TR><TR><TD>Discharging</TD></TR><TR><TD>Export</TD></TR><TR><TD>Import</TD></TR><TR><TD>Inverter</TD></TR><TR><TD>Self consumption</TD></TR><TR><TD>Solar production</TD></TR>
     stringData += "</TABLE></TD>";
     
     stringData += "<TD align=right><b><u>Yday, all:</u></b><br><TABLE style=\"border: 1px;\">";
@@ -710,28 +719,38 @@ function FillSummaries () { /// calculate and show the summary data per day.
     for (var i = 0; i < sortedT.length; i++) { // "+ sortedT[i] + "  = 
         stringData +=  "<TR><TD></TD><TD></TD><TD align=right>" + summaryDataYesterdayPartial[sortedT[i]].toLocaleString() + ' Wh</TD></TR>';
     }   
-    var solarT = 0;
+    var solarYP = 0;
     if (has_battery) {
-        solarT = summaryDataYesterdayPartial['Export'] + summaryDataYesterdayPartial['Charging'] 
+        solarYP = summaryDataYesterdayPartial['Export'] + summaryDataYesterdayPartial['Charging'] 
                     + (summaryDataYesterdayPartial['Consumption'] 
                             - summaryDataYesterdayPartial['Import'] 
                             + summaryDataYesterdayPartial['Discharging']) ;
     }
     else {
-        solarT = summaryDataYesterdayPartial['Export'] + (summaryDataYesterdayPartial['Consumption'] - summaryDataYesterdayPartial['Import']) ;
+        solarYP = summaryDataYesterdayPartial['Export'] + (summaryDataYesterdayPartial['Consumption'] - summaryDataYesterdayPartial['Import']) ;
     }
-    stringData += "<TR><TD></TD><TD></TD><TD align=right>" + solarT.toLocaleString() + ' Wh</TD></TR>'; //  = 
+    stringData += "<TR><TD></TD><TD></TD><TD align=right>" + solarYP.toLocaleString() + ' Wh</TD></TR>'; //  = 
 
     // Now on to the TODAY table
+    cellColor = 'white';   // or palegreen if better, lightpink if worse, than yesterday
     stringData += "</TABLE></TD><TD align=right><b><u>Today:</u></b><br><TABLE>"; 
-    
-    //alert(JSON.stringify(summaryDataToday));
     var sortedT = Object.keys(summaryDataToday).sort();
     for (var i = 0; i < sortedT.length; i++) { // "+ sortedT[i] + "
-        stringData +=  "<TR><TD></TD><TD></TD><TD align=right>" + summaryDataToday[sortedT[i]].toLocaleString() + ' Wh</TD></TR>'; // = 
+        if (colorSummary[sortedT[i]] == 1) {
+            if (summaryDataToday[sortedT[i]] > summaryDataYesterdayPartial[sortedT[i]]) {
+                cellColor = "palegreen";
+            }
+            else { cellColor = "lightpink"; }
+        }
+        else if (colorSummary[sortedT[i]] == 0) {
+            if (summaryDataToday[sortedT[i]] > summaryDataYesterdayPartial[sortedT[i]]) {
+                cellColor = "lightpink";
+            }
+            else { cellColor = "palegreen"; } 
+        }
+        else { cellColor = 'white'; }
+        stringData +=  "<TR><TD></TD><TD></TD><TD align=right bgcolor="+cellColor+">" + summaryDataToday[sortedT[i]].toLocaleString() + ' Wh</TD></TR>'; // = 
     }   
-    //var selfT = summaryDataToday['Consumption'] - summaryDataToday['Import'];
-    //stringData += "<TR><TD>Self-consumption</TD><TD> = </TD><TD align=right>" + selfT.toLocaleString() + ' Wh</TD></TR>';
     var solarT = 0;
     if (has_battery) {
         solarT = summaryDataToday['Export'] + summaryDataToday['Charging'] 
@@ -742,7 +761,10 @@ function FillSummaries () { /// calculate and show the summary data per day.
     else {
         solarT = summaryDataToday['Export'] + (summaryDataToday['Consumption'] - summaryDataToday['Import']) ;
     }
-    stringData += "<TR><TD></TD><TD></TD><TD align=right>" + solarT.toLocaleString() + ' Wh</TD></TR>'; // = 
+    if (solarT > solarYP) { cellColor = 'palegreen'; }
+    else if (solarT < solarYP) { cellColor = 'lightpink'; }
+    else { cellColor = 'white'; }
+    stringData += "<TR><TD></TD><TD></TD><TD align=right bgcolor="+cellColor+">" + solarT.toLocaleString() + ' Wh</TD></TR>'; // = 
 
     stringData += "</TABLE></TD></TR></TABLE>";
     sumData.innerHTML = stringData;
