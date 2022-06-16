@@ -10,6 +10,11 @@
 //          into the top two variables. Make sure to save the page after making the API key, so it registers to SolarEdge.
 //
 //          This uses Chart.js for graphing services
+//
+//        sender_flow =        currentPowerFlow.json      # Current point in time values
+//        sender          =       powerDetails.json             #  export, import, consumption
+//        sender_battery =   storageData.json               # battery
+//        sender_inverter =  data.json                           # inverter graph
 
 
 var site_id = "";            //   1234567
@@ -24,7 +29,7 @@ var chart_battery_title = "Inverter status tracking for site " + site_id;
 if (has_battery) {
     chart_battery_title = "Battery status tracking for site " + site_id;
 }
-var battery_max_througput = 22400000; // warranted 22.4 MWh of max throughput in 10 years
+var battery_max_throughput = 22400000; // warranted 22.4 MWh of max throughput in 10 years
 
 var timenow = nowtime(0);
 var timepast = nowtime(48);  // supply number of hours back, then forward to start of next day.
@@ -305,9 +310,11 @@ function responder (payload) {      ////////////   Main data, but only for expor
     chart_solar.datasets = []; // data structures go in here, including label for each meter type
     var saved_import = [];      // save ahead for self-consumption graph
     var first_set = 1;
+    var calculate_selfconsumption = 1; // if we are getting from server, do not calculate own value
     for (var i in datasets) { 
         var line_label = rename_scheme[datasets[i].type];
         if (line_label == "Production") { continue; } // Data is useless. inverter to consumption or export, but not battery
+        if (line_label == "SelfConsumption") { selfconsumption_flag = 0; } // Otherwise, calculate our own below.
         var line_set = {};
         var yesterday = test_day(timepast, 'initialize'); // flag when we cross from yesterday to today
         line_properties(line_set, line_label);
@@ -347,22 +354,24 @@ function responder (payload) {      ////////////   Main data, but only for expor
     }
     chart_solar.datasets.push(day_set);
     
-    // Now create extra graph/line for self-consumption, by calculation of consumption - import (saved)
-//     var calc_set = {};
-//     line_properties(calc_set, "Self consumption");
-//     
-//     var line_values = [];  
-//     for (var i in chart_solar.datasets) {
-//         var nowset = chart_solar.datasets[i];
-//         if (nowset.label == "Consumption") {
-//             var values = nowset.data;
-//             for (var j in values) {
-//                 line_values.push( Math.round(values[j] - saved_import[j])); 
-//             }
-//         }
-//     }
-//     calc_set.data = line_values;
-//     chart_solar.datasets.push(calc_set);
+    if (calculate_selfconsumption) {
+    // Now create extra graph/line for self-consumption, by calculation of ... consumption - import (saved)
+        var calc_set = {};
+        line_properties(calc_set, "Self consumption");
+    
+        var line_values = [];  
+        for (var i in chart_solar.datasets) {
+            var nowset = chart_solar.datasets[i];
+            if (nowset.label == "Consumption") {
+                var values = nowset.data;
+                for (var j in values) {
+                    line_values.push( Math.round(values[j] - saved_import[j])); 
+                }
+            }
+        }
+        calc_set.data = line_values;
+        chart_solar.datasets.push(calc_set);
+    }
     
     DrawChart();
     sender_inverter();  // chain all calls in orderly sequence.
@@ -396,8 +405,8 @@ function responder_battery (payload) {  //      Battery graph 2, but data is int
         document.getElementById('misc_notes').innerHTML 
             = ("(Filled in " + badIntervalCount + " bad intervals in battery and inverter data)");
     
-        var throughputDpercent = (cumulativeDischarge/battery_max_througput) * 100;
-        var throughputCpercent = (cumulativeCharge/battery_max_througput) * 100;
+        var throughputDpercent = (cumulativeDischarge/battery_max_throughput) * 100;
+        var throughputCpercent = (cumulativeCharge/battery_max_throughput) * 100;
         var throughputDmwh = (cumulativeDischarge/1000000).toFixed(3);
         var throughpuCmwh = (cumulativeCharge/1000000).toFixed(3);
         document.getElementById('battery_meta_data').innerHTML 
@@ -683,7 +692,7 @@ function FillSummaries () { /// calculate and show the summary data per day.
     
     // Start with header, then yesterday table
     var sortedY = Object.keys(summaryDataYesterday).sort();
-    var stringData = "<TABLE padding=5px><TR valign=bottom><TD></TD><TD colspan=2 align=center>&nbsp;<b>=== Yesterday ===</b></TD><TD></TD></TR>";
+    var stringData = "<TABLE padding=5px><TR valign=bottom><TD></TD><TD colspan=2 align=center>&nbsp;<b>== &nbsp; Yesterday &nbsp; ==</b></TD><TD></TD></TR>";
     stringData += "<TR valign=bottom><TD><TABLE><TR><TD></TD></TR>";
     
     for (var i = 0; i < sortedY.length; i++) { //"+ sortedY[i] + "   = 
