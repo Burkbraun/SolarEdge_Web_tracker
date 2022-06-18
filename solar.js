@@ -314,7 +314,7 @@ function responder (payload) {      ////////////   Main data, but only for expor
     for (var i in datasets) { 
         var line_label = rename_scheme[datasets[i].type];
         if (line_label == "Production") { continue; } // Data is useless. inverter to consumption or export, but not battery
-        if (line_label == "SelfConsumption") { selfconsumption_flag = 0; } // Otherwise, calculate our own below.
+        if (line_label == "Self consumption") { calculate_selfconsumption = 0; } // Otherwise, calculate our own below.
         var line_set = {};
         var yesterday = test_day(timepast, 'initialize'); // flag when we cross from yesterday to today
         line_properties(line_set, line_label);
